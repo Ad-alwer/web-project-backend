@@ -46,3 +46,33 @@ exports.getCart = async (req, res) => {
     res.status(500).json({ error: 'Failed to get cart' });
   }
 };
+
+exports.removeFromCart = async (req, res) => {
+  const { productId } = req.body;
+  const userId = req.user.id;
+
+  try {
+    let cart = await Cart.findOne({ user: userId }).populate('items.product');
+    if (!cart) return res.status(404).json({ error: 'Cart not found' });
+
+    const itemIndex = cart.items.findIndex(
+      item => item.product._id.toString() === productId
+    );
+
+    if (itemIndex === -1) {
+      return res.status(404).json({ error: 'Product not found in cart' });
+    }
+
+    cart.items.splice(itemIndex, 1);
+
+    cart.total = cart.items.reduce(
+      (sum, item) => sum + (item.product.price * item.quantity),
+      0
+    );
+
+    await cart.save();
+    res.json(cart);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to remove item from cart' });
+  }
+};
