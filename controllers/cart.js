@@ -76,3 +76,40 @@ exports.removeFromCart = async (req, res) => {
     res.status(500).json({ error: 'Failed to remove item from cart' });
   }
 };
+
+// Update product quantity in cart
+exports.updateCartItem = async (req, res) => {
+  const { productId, quantity } = req.body;
+  const userId = req.user.id;
+
+  if (!productId || quantity === undefined || quantity < 1) {
+    return res.status(400).json({ 
+      error: 'Product ID and valid quantity (>=1) are required' 
+    });
+  }
+
+  try {
+    let cart = await Cart.findOne({ user: userId }).populate('items.product');
+    if (!cart) return res.status(404).json({ error: 'Cart not found' });
+
+    const itemIndex = cart.items.findIndex(
+      item => item.product._id.toString() === productId
+    );
+
+    if (itemIndex === -1) {
+      return res.status(404).json({ error: 'Product not found in cart' });
+    }
+
+    cart.items[itemIndex].quantity = quantity;
+
+    cart.total = cart.items.reduce(
+      (sum, item) => sum + (item.product.price * item.quantity),
+      0
+    );
+
+    await cart.save();
+    res.json(cart);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update cart item' });
+  }
+};
